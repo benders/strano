@@ -16,45 +16,25 @@ class Job < ActiveRecord::Base
     self.unscoped.where 'deleted_at IS NOT NULL'
   end
 
-  def logger
-    @logger ||= Strano::Logger.new(self)
-  end
-
-  def read_from(label, stream) while line = stream.gets
-      puts "#{label}: #{line}"
-    end
-  end
-
   def run_task
     success = true
 
     ARGV << stage if stage
 
-    puts "Starting run\n"
-    puts "chdir #{project.repo.path}\n"
+    log "\e[33m> Starting run\e[0m"
+    log "chdir #{project.repo.path}"
     FileUtils.chdir project.repo.path do
       cmd = %w(bundle exec cap) + full_command.flatten
-      puts cmd.join(" ") + "\n"
-      out, success = Open3.popen2e(*cmd) do |stdin, stdout_and_stderr, wait_thread|
-        puts "Capistrano PID #{wait_thread.pid}\n"
+      log cmd.inspect
+      success = Open3.popen2e(*cmd) do |stdin, stdout_and_stderr, wait_thread|
+        log "Capistrano PID #{wait_thread.pid}"
         outerr_reader = Thread.new do
           while bytes = (stdout_and_stderr.readpartial(1024) rescue nil)
-            puts bytes
+            log_raw bytes
           end
         end
         stdin.close
-        [outerr_reader.value, wait_thread.value]
-      end
-
-      # out = capture(:stderr) do
-      #   success = system("cap #{full_command.join(" ")} >&2")
-      #   # success = Strano::CLI.parse(Strano::Logger.new(self), full_command.flatten).execute!
-      # end
-
-      if out.is_a?(String)
-        puts "\n  \e[33m> #{out}\e" unless out.blank?
-      elsif !out.string.blank?
-        puts "\n  \e[1;32m> #{out.string}\e"
+        wait_thread.value
       end
     end
 
@@ -69,7 +49,11 @@ class Job < ActiveRecord::Base
     "#{stage} #{task}"
   end
 
-  def puts(msg)
+  def log(msg)
+    log_raw(msg + "\n")
+  end
+
+  def log_raw(msg)
     update_attribute :results, (results_before_type_cast || '') + msg unless msg.blank?
   end
 
