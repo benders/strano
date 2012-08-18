@@ -1,4 +1,6 @@
-require 'kernel'
+# require 'kernel'
+require 'open3'
+
 class Job < ActiveRecord::Base
   include Ansible
 
@@ -14,15 +16,40 @@ class Job < ActiveRecord::Base
     self.unscoped.where 'deleted_at IS NOT NULL'
   end
 
+  def logger
+    @logger ||= Strano::Logger.new(self)
+  end
+
+  def read_from(label, stream) while line = stream.gets
+      puts "#{label}: #{line}"
+    end
+  end
+
   def run_task
     success = true
 
     ARGV << stage if stage
 
+    puts "Starting run\n"
+    puts "chdir #{project.repo.path}\n"
     FileUtils.chdir project.repo.path do
-      out = capture(:stderr) do
-        success = Strano::CLI.parse(Strano::Logger.new(self), full_command.flatten).execute!
+      cmd = %w(bundle exec cap) + full_command.flatten
+      puts cmd.join(" ") + "\n"
+      out, success = Open3.popen2e(*cmd) do |stdin, stdout_and_stderr, wait_thread|
+        puts "Capistrano PID #{wait_thread.pid}\n"
+        outerr_reader = Thread.new do
+          while bytes = (stdout_and_stderr.readpartial(1024) rescue nil)
+            puts bytes
+          end
+        end
+        stdin.close
+        [outerr_reader.value, wait_thread.value]
       end
+
+      # out = capture(:stderr) do
+      #   success = system("cap #{full_command.join(" ")} >&2")
+      #   # success = Strano::CLI.parse(Strano::Logger.new(self), full_command.flatten).execute!
+      # end
 
       if out.is_a?(String)
         puts "\n  \e[33m> #{out}\e" unless out.blank?
