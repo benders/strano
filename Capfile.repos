@@ -12,3 +12,7 @@ begin
 rescue LoadError
   nil
 end
+
+# "interactive" authentication isn't going to work from a web deploy, so
+# force Net::SSH to only consider non-interactive authentication modes.
+ssh_options[:auth_methods] = %w(publickey hostbased)
