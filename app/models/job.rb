@@ -19,23 +19,13 @@ class Job < ActiveRecord::Base
   def run_task
     success = true
 
-    ARGV << stage if stage
-
-    log "\e[33m> Starting run\e[0m"
-    log "chdir #{project.repo.path}"
+    log highlight("> cd #{project.repo.path}")
     FileUtils.chdir project.repo.path do
+      bundled = run_command("bundle check || bundle install --deployment --without 'development test'")
+      return false unless bundled
+
       cmd = %w(bundle exec cap) + full_command.flatten
-      log cmd.inspect
-      success = Open3.popen2e(*cmd) do |stdin, stdout_and_stderr, wait_thread|
-        log "Capistrano PID #{wait_thread.pid}"
-        outerr_reader = Thread.new do
-          while bytes = (stdout_and_stderr.readpartial(1024) rescue nil)
-            log_raw bytes
-          end
-        end
-        stdin.close
-        wait_thread.value
-      end
+      success = run_command(*cmd)
     end
 
     !!success
@@ -78,4 +68,26 @@ class Job < ActiveRecord::Base
       CapExecute.perform_async id
     end
 
+  def read_thread(stream)
+    Thread.new {
+      while bytes = (stream.readpartial(1024) rescue nil)
+        yield(bytes)
+      end
+    }
+  end
+
+  def highlight(string)
+    "\e[#{33}m" + string + "\e[0m"
+  end
+
+  def run_command(*cmd)
+    log highlight("> " + [*cmd].join(' '))
+    Bundler.with_clean_env do
+      Open3.popen2e(*cmd) do |stdin, outerr, wait_thread|
+        stdin.close
+        out_reader = read_thread(outerr) { |bytes| log_raw(bytes) }
+        wait_thread.value
+      end
+    end
+  end
 end
