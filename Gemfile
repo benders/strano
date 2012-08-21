@@ -41,6 +41,7 @@ gem 'delayed_job', :require => nil
 gem 'whenever', :require => nil
 gem 'airbrake', :require => nil
 gem 'newrelic_rpm', :require => nil
+gem 'eycap', '0.5.3', :require => nil
 
 group :development, :test do
   gem 'rspec-rails'
