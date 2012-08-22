@@ -17,7 +17,7 @@
     <%= f.input :stage, :as => :select, :collection => parent.cap.stages, :include_blank => false %>
   <%- end -%>
 
-  <%= f.input :branch, :as => :select, :collection => parent.repo.branches, :include_blank => false, :selected => parent.cap.branch %>
+  <%= f.input :branch, :as => :select, :collection => parent.repo.branches, :include_blank => false, :selected => (parent.cap.respond_to?(:branch) ? parent.cap.branch : nil)%>
 
   <%= f.input :notes, :input_html => { :class => "span8", :rows => 5, :style => "height:80px;" } %>
 
