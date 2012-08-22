@@ -1,4 +1,3 @@
-# require 'kernel'
 require 'open3'
 
 class Job < ActiveRecord::Base
