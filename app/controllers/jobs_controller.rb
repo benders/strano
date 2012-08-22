@@ -14,9 +14,7 @@ class JobsController < InheritedResources::Base
 
   def new
     @job = parent.jobs.build params[:job]
-    # TODO write in the README that all the projects that use multistage need one
-    # default_stage configuration
-    @job.stage = parent.cap.default_stage if parent.cap.namespaces.keys.include?(:multistage)
+    @job.stage = parent.cap.stages.first if parent.cap.namespaces.keys.include?(:multistage)
 
     new!
   end
